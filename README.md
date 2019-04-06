@@ -5,7 +5,7 @@ Use check box if end concentration is known to use log-scaled equidistant concen
 If not, uncheck box and a constant multiplicative factor will be used.
 
 
-In Rstudio run R code below:
+In Rstudio run R code below:  
 `library(shiny)`
 
 `runGitHub("conceffectplan", "eastandrew")`  
