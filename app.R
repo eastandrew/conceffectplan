@@ -9,55 +9,70 @@
 
 library(shiny)
 
-# Define UI for application that draws a histogram
+# Define UI for application that interpolates equidistant points on log-scale for dose repsonse planning
+# or uses constant multiplicative factor across a number of treatments from a starting concentration
 ui <- fluidPage(
-   
-   # Application title
-   titlePanel("Constant Factor Concentration and Effect Planning"),
-   
-   # Sidebar with a slider input for number of bins 
-   sidebarLayout(
-      sidebarPanel(
-         sliderInput("effect",
-                     "Magnitude of Effect:",
-                     min = 0,
-                     max = 1,
-                     value = 0.5),
-         sliderInput("numT",
-                     "Number of Treatments:",
-                     min = 1,
-                     max = 20,
-                     value = 4),
-         numericInput("startconc", label=h3("Starting Concentration"), value=0.05),
-         numericInput("changefactor", label = h3("Change Factor"), value = exp(1))
-      ),
-      
-      # Show a plot of the generated distribution
-      mainPanel(
-         plotOutput("scatterPlot")
-      )
-   )
+  
+  # Application title
+  titlePanel("Concentration Planning:"),
+  titlePanel("with either start and ending concentration"),
+  titlePanel("or constant multiplicative factor."),
+  
+  # Sidebar with a slider input for number of bins, starting concentration, and ending concentration
+  sidebarLayout(
+    sidebarPanel(
+      checkboxInput("checkbox", label = "Known Ending Concentration", value = TRUE),
+      sliderInput("numT",
+                  "Number of Treatments:",
+                  min = 1,
+                  max = 20,
+                  value = 5),
+      numericInput("startconc", label=h3("Starting Concentration"), value=0.05),
+      numericInput("endconc", label=h3("Ending Concentration"), value=0.5),
+      numericInput("changefactor", label = h3("Change Factor"), value = exp(1))
+    ),
+    
+    # Show a plot of the generated concentrations across bio effect of 100% across number of treatments
+    mainPanel(
+      plotOutput("scatterPlot")
+    )
+  )
 )
 
-# Define server logic required to draw a histogram
+# Define server logic required to fit values and plot
 server <- function(input, output) {
-   
-   output$scatterPlot <- renderPlot({
-     effectmag <- input$effect
-     numtreats <- input$numT
-     startinglow <- input$startconc
-     factorstart <- input$changefactor
-     
-     df <- data.frame(effmag=seq(1,1-effectmag,length.out=numtreats))
-     df$treatstart <- startinglow
-     df$factor <- factorstart
-     df$ID <- as.numeric(row.names(df))-1
-     df$treat <- df$treatstart*(df$factor^df$ID)
-     #df
-     plot(1,1,pch=NA, ylim=c(0,1),xlim=c(min(df$treat),max(df$treat)),xlab="log visualized conc",ylab="effect",log="x")
-     points(effmag~treat, data=df, pch=NA, type="b")
-     text(effmag~treat, data=df, bquote(.(round(df$treat,3))))
-   })
+  
+  output$scatterPlot <- renderPlot({
+    if (input$checkbox==T) {
+      vect <- c()
+    vect[1] <- input$startconc
+    multiplier <- (exp((log(input$endconc)-log(input$startconc))/(input$numT-1)))
+    #multiplier <- (10^((log10(maxx)-log10(minx))/(binsx-1)))
+    for (i in 2:(input$numT)){
+      vect[i] <- vect[i-1]*multiplier
+    }
+    #vect
+    plot(vect,c(seq(1,0,length.out=input$numT)), log="x", type="b", pch=NA, xlab="log visualize concentration", ylab="effect")
+    text(vect,c(seq(1,0,length.out=input$numT)),round(vect,3))
+    text((max(vect)*0.5), 0.8, bquote(paste("Factor: ",.(round(multiplier,3)))))
+    text((max(vect)*0.5), 0.7, "OECD max = 3.2")
+    } else {
+      numtreats <- input$numT
+      startinglow <- input$startconc
+      factorstart <- input$changefactor
+      
+      df <- data.frame(effmag=seq(1,0,length.out=numtreats))
+      df$treatstart <- startinglow
+      df$factor <- factorstart
+      df$ID <- as.numeric(row.names(df))-1
+      df$treat <- df$treatstart*(df$factor^df$ID)
+      #df
+      plot(1,1,pch=NA, ylim=c(0,1),xlim=c(min(df$treat),max(df$treat)),xlab="log visualized conc",ylab="effect",log="x")
+      points(effmag~treat, data=df, pch=NA, type="b")
+      text(effmag~treat, data=df, bquote(.(round(df$treat,3))))
+    }
+
+  })
 }
 
 # Run the application 
